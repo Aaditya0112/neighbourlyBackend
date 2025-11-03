@@ -58,6 +58,12 @@ await app.register(cors, {
 await app.register(formbody); /// For handling `application/x-www-form-urlencoded`
 
 app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
+  // Handle empty bodies (e.g., DELETE with no payload) gracefully
+  if (!body || String(body).trim() === "") {
+    // treat empty body as an empty object
+    return done(null, {});
+  }
+
   try {
     const json = JSON.parse(body);
     done(null, json);
