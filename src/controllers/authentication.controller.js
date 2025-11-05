@@ -178,11 +178,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
 })
 
-const getUser = asyncHandler(async (req, res) => {
-    return res.code(200).send(
-        new ApiResponse(200, req.user, "User fetched Successfully")
-    )
-})
+
 
 
 const setFCMToken = asyncHandler(async (req, res) => {
@@ -258,7 +254,6 @@ export {
     loginUser,
     logoutUser,
     loginWithOTP,
-    getUser,
     setFCMToken,
     sendOTP,
     verifyOTP,

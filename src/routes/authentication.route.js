@@ -1,5 +1,6 @@
 
-import { registerUser, loginUser, getUser, } from "../controllers/authentication.controller.js";
+import { registerUser, loginUser, } from "../controllers/authentication.controller.js";
+import { getUser } from "../controllers/user.controller.js";
 // import { otpBasedPasswordChange } from "../controllers/users.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -18,6 +19,7 @@ async function authRoutes(fastify, options) {
     // ))
     // fastify.post("/logout",{ preHandler: verifyJWT }, logoutUser);
     fastify.get("/me", { preHandler: verifyJWT }, getUser);
+    
     // fastify.post("/send-otp", sendOTP);
     // fastify.post("/verify-otp", verifyOTP);
     // fastify.post("/change-password-with-otp", otpBasedPasswordChange)

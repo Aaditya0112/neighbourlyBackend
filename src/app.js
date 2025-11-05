@@ -93,7 +93,7 @@ app.get('/health', (req, res) => {
 
 import authRoutes from "./routes/authentication.route.js";
 import requestRoutes from "./routes/request.route.js";
-
+import userRoutes from "./routes/user.route.js";
 
 
 // import setupSocket from "./controllers/socket.controller.js";
@@ -101,6 +101,7 @@ import requestRoutes from "./routes/request.route.js";
 
 await app.register(authRoutes, { prefix: '/api/v1/auth' });
 await app.register(requestRoutes, { prefix: '/api/v1' });
+await app.register(userRoutes, { prefix: '/api/v1' });
 
 
 export { app };

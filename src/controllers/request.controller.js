@@ -209,13 +209,57 @@ const getAllRequests = asyncHandler(async (req, res) => {
 
 const getMyRequests = asyncHandler(async (req, res) => {
     const userId = req.user._id;
+    // Use aggregation to populate availableProviders with user refs (name, gender, profilePic)
+    const myRequests = await Request.aggregate([
+        {
+            $match: {
+                requester: new mongoose.Types.ObjectId(userId)
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "availableProviders",
+                foreignField: "_id",
+                as: "availableProviders",
+                pipeline: [
+                    {
+                        $project: {
+                            _id: 1,
+                            name: 1,
+                            gender: 1,
+                            profilePic: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "provider",
+                foreignField: "_id",
+                as: "provider",
+                pipeline: [
+                    {
+                        $project: {
+                            _id: 1,
+                            name: 1,
+                            gender: 1,
+                            profilePic: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                provider: { $first: "$provider" }
+            }
+        }
+    ]);
 
-    const myRequests = await Request.find({ requester: userId })
-
-    return res.code(200)
-        .send(
-            new ApiResponse(200, myRequests, "My requests fetched successfully")
-        );
+    return res.code(200).send(new ApiResponse(200, myRequests, "My requests fetched successfully"));
 });
 
 // const updateAssignment = asyncHandler(async (req, res) => {
@@ -285,6 +329,24 @@ const getRequest = asyncHandler(async (req, res) => {
         {
             $addFields: {
                 requester: { $first: "$requester" }
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "availableProviders",
+                foreignField: "_id",
+                as: "availableProviders",
+                pipeline: [
+                    {
+                        $project: {
+                            _id: 1,
+                            name: 1,
+                            gender: 1,
+                            profilePic: 1
+                        }
+                    }
+                ]
             }
         },
         {
