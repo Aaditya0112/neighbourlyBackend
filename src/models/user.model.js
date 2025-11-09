@@ -41,9 +41,9 @@ const userSchema = new Schema({
         type : [Number]
     },
 
-    // fcmToken : {
-    //     type : String
-    // }
+    fcmToken : {
+        type : String
+    }
 },
 {
     timestamps : true

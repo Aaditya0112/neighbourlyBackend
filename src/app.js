@@ -7,7 +7,7 @@ import formbody from "@fastify/formbody";
 // import fastifySocketIO from "fastify-socket.io";
 import fastifyRateLimit from "@fastify/rate-limit";
 
-// import setupSocket from "./socket/index.js";
+// import setupSocket from "./services/socket/index.js";
 
 
 

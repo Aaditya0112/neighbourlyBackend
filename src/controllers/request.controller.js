@@ -7,6 +7,7 @@ import { User } from "../models/user.model.js";
 // import axios from "axios";
 // import { getFCMAccessToken } from "../utils/fcmAuth.js";
 import { Request } from "../models/request.model.js";
+import { sendPush } from "../services/firebase/firebase-fcm.js";
 
 const createRequest = asyncHandler(async (req, res) => {
 
@@ -421,6 +422,31 @@ const acceptRequest = asyncHandler(async (req, res) => {
         { new: true }
     );
 
+    // Notify the requester that a provider has shown interest (if they have an fcmToken)
+    (async () => {
+        try {
+            console.log("inside acceptRequest fcm");
+            console.log(updatedRequest.toString());
+            const providerUser = await User.findById(req.user._id).select("name fcmToken");
+            const requesterUser = await User.findById(updatedRequest.requester).select("name fcmToken");
+
+            console.log(requesterUser.toString());
+
+            if (requesterUser && requesterUser.fcmToken) {
+                const title = "Someone offered to help";
+                const body = `${providerUser?.name || 'A provider'} has offered to help with your request.`;
+                const data = { type: "provider_available", requestId: requestId, providerId: req.user._id.toString() };
+                await sendPush(requesterUser.fcmToken, title, body, data);
+            }else{
+                console.log("No fcmToken for requester or requesterUser not found");
+                console.log(requesterUser.toString());
+            }
+        } catch (err) {
+            // Do not block the main flow for notification failures
+            console.error("Failed to send FCM on acceptRequest:", err?.message || err);
+        }
+    })();
+
     return res.code(200).send(new ApiResponse(200, updatedRequest, "Request accepted"));
 });
 
@@ -465,6 +491,21 @@ const approveProvider = asyncHandler(async (req, res) => {
         },
         { new: true }
     );
+
+    // Notify the approved provider that they have been approved (if they have an fcmToken)
+    (async () => {
+        try {
+            const providerUser = await User.findById(providerId).select("name fcmToken");
+            if (providerUser && providerUser.fcmToken) {
+                const title = "You've been approved";
+                const body = `You were approved to help on request ${updatedRequest._id}`;
+                const data = { type: "provider_approved", requestId: requestId, providerId: providerId.toString() };
+                await sendPush(providerUser.fcmToken, title, body, data);
+            }
+        } catch (err) {
+            console.error("Failed to send FCM on approveProvider:", err?.message || err);
+        }
+    })();
 
     return res.code(200).send(new ApiResponse(200, updatedRequest, "Provider approved"));
 });

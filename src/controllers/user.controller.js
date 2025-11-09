@@ -21,7 +21,16 @@ const getUserById = asyncHandler(async (req, res) => {
     )
 });
 
+const getAllUsers = asyncHandler(async (req, res) => {
+    const users = await User.find().select("-password");
+
+    return res.code(200).send(
+        new ApiResponse(200, users, "Users fetched Successfully")
+    )
+});
+
 export {
     getUser,
-    getUserById
+    getUserById,
+    getAllUsers
 }

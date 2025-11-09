@@ -1,14 +1,14 @@
 
-import { registerUser, loginUser, } from "../controllers/authentication.controller.js";
+import { registerUser, loginUser, setFCMToken} from "../controllers/authentication.controller.js";
 import { getUser } from "../controllers/user.controller.js";
 // import { otpBasedPasswordChange } from "../controllers/users.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
+
 
 async function authRoutes(fastify, options) {
     fastify.post("/register", registerUser);
     fastify.post("/login", loginUser);
-    // fastify.post("/fcmtoken", { preHandler: verifyJWT }, setFCMToken)
+    fastify.post("/fcmtoken", { preHandler: verifyJWT }, setFCMToken)
     // fastify.post("/check/:txt", asyncHandler(
     //     async (req, res) => {
     //         const { txt } = req.params;
