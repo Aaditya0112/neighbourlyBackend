@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import path from 'path';
 
 const serviceAccount = JSON.parse(
-  readFileSync(path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH))
+  process.env.FIREBASE_SERVICE_ACCOUNT
 );
 
 const initializeFirebaseAdmin = () => {
