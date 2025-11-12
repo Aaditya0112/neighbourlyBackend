@@ -1,16 +1,14 @@
 import mongoose from "mongoose";
-import { ChatEventEnum } from "../../../constants.js";
+import { ChatEventEnum } from "../constants.js";
 import { Chat } from "../models/chat.model.js";
 import { ChatMessage } from "../models/message.model.js";
-import { emitSocketEvent } from "../services/socket/index.js";
+import { emitSocketEvent, isUserOnline } from "../services/socket/index.js";
+import { sendPush } from "../services/firebase/firebase-fcm.js";
+import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-// import {
-//   getLocalPath,
-//   getStaticFilePath,
-//   removeLocalFile,
-// } from "../../../utils/helpers.js";
+// import { getLocalPath, getStaticFilePath, removeLocalFile } from "../utils/helpers.js";
 
 /**
  * @description Utility function which returns the pipeline stages to structure the chat message schema with common lookups
@@ -27,9 +25,11 @@ const chatMessageCommonAggregation = () => {
         pipeline: [
           {
             $project: {
-              username: 1,
-              avatar: 1,
-              email: 1,
+              _id: 1,
+              username: "$name",
+              avatar: "$profilePic",
+              phoneNumber: 1,
+              gender: 1,
             },
           },
         ],
@@ -66,14 +66,14 @@ const getAllMessages = asyncHandler(async (req, res) => {
     ...chatMessageCommonAggregation(),
     {
       $sort: {
-        createdAt: -1,
+        createdAt: 1,
       },
     },
   ]);
 
   return res
-    .status(200)
-    .json(
+    .code(200)
+    .send(
       new ApiResponse(200, messages || [], "Messages fetched successfully")
     );
 });
@@ -140,23 +140,46 @@ const sendMessage = asyncHandler(async (req, res) => {
   }
 
   // logic to emit socket event about the new message created to the other participants
-  chat.participants.forEach((participantObjectId) => {
-    // here the chat is the raw instance of the chat in which participants is the array of object ids of users
-    // avoid emitting event to the user who is sending the message
-    if (participantObjectId.toString() === req.user._id.toString()) return;
+  // notify via socket to connected participants and collect offline participants for push
+  const pushPromises = chat.participants.map(async (participantObjectId) => {
+    const participantId = participantObjectId.toString();
+    if (participantId === req.user._id.toString()) return null; // skip sender
 
-    // emit the receive message event to the other participants with received message as the payload
-    emitSocketEvent(
-      req,
-      participantObjectId.toString(),
-      ChatEventEnum.MESSAGE_RECEIVED_EVENT,
-      receivedMessage
-    );
+    // Emit to participant's user room (will deliver to all their devices)
+    emitSocketEvent(req, participantId, ChatEventEnum.MESSAGE_RECEIVED_EVENT, receivedMessage);
+
+    // If user isn't online (no sockets in their user room), send push notification via FCM
+    try {
+      const online = await isUserOnline(participantId);
+      if (!online) {
+        const participantUser = await User.findById(participantId).select("name fcmToken");
+        if (participantUser && participantUser.fcmToken) {
+          const title = participantUser && participantUser.name ? `${req.user.name || 'Someone'} sent a message` : "New message";
+          const body = (receivedMessage.content && receivedMessage.content.length) ? receivedMessage.content.slice(0, 120) : "You received an attachment";
+          const data = {
+            chatId: chat._id.toString(),
+            messageId: receivedMessage._id.toString(),
+            type: "message",
+          };
+          await sendPush(participantUser.fcmToken, title, body, data);
+        }
+      }
+    } catch (err) {
+      // Log and continue; push failures shouldn't block the HTTP response
+      console.warn("push notification failed for user", participantId, err?.message || err);
+    }
+
+    return null;
+  });
+
+  // fire-and-forget push sending in parallel
+  Promise.all(pushPromises).catch((e) => {
+    console.warn("pushPromises failed", e?.message || e);
   });
 
   return res
-    .status(201)
-    .json(new ApiResponse(201, receivedMessage, "Message saved successfully"));
+    .code(201)
+    .send(new ApiResponse(201, receivedMessage, "Message saved successfully"));
 });
 
 const deleteMessage = asyncHandler(async (req, res) => {
@@ -228,8 +251,8 @@ const deleteMessage = asyncHandler(async (req, res) => {
   });
 
   return res
-    .status(200)
-    .json(new ApiResponse(200, message, "Message deleted successfully"));
+    .code(200)
+    .send(new ApiResponse(200, message, "Message deleted successfully"));
 });
 
 export { getAllMessages, sendMessage, deleteMessage };

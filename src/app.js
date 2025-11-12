@@ -94,6 +94,9 @@ app.get('/health', (req, res) => {
 import authRoutes from "./routes/authentication.route.js";
 import requestRoutes from "./routes/request.route.js";
 import userRoutes from "./routes/user.route.js";
+import chatRoutes from "./routes/chat.route.js";
+import { Server as IOServer } from "socket.io";
+import { setupSocketIo, registerIo } from "./services/socket/index.js";
 
 
 // import setupSocket from "./controllers/socket.controller.js";
@@ -102,6 +105,24 @@ import userRoutes from "./routes/user.route.js";
 await app.register(authRoutes, { prefix: '/api/v1/auth' });
 await app.register(requestRoutes, { prefix: '/api/v1' });
 await app.register(userRoutes, { prefix: '/api/v1' });
+// register chat routes
+await app.register(chatRoutes, { prefix: '/api/v1' });
+
+// create socket.io server directly (avoid fastify-socket.io peer dependency)
+try {
+  const io = new IOServer(app.server, {
+    cors: {
+      origin: process.env.CORS_ORIGIN || true,
+      methods: ["GET", "POST"],
+    },
+  });
+
+  // register module-level instance and attach handlers
+  registerIo(io);
+  setupSocketIo(io);
+} catch (err) {
+  app.log.warn("Socket.io setup failed:", err?.message || err);
+}
 
 
 export { app };

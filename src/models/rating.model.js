@@ -11,7 +11,7 @@ const ratingSchema = new mongoose.Schema({
         ref: "User",
         required: true,
     },
-    rateeId: {
+    ratedId: {
         type: Schema.Types.ObjectId,
         ref: "User",
         required: true,
@@ -22,7 +22,7 @@ const ratingSchema = new mongoose.Schema({
         min: 1,
         max: 5
     },
-    comment: {
+    reviewText: {
         type: String,
         default: ""
     }   

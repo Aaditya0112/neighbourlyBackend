@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
-import { ChatEventEnum } from "../../../constants.js";
-import { User } from "../../../models/apps/auth/user.models.js";
-import { Chat } from "../../../models/apps/chat-app/chat.models.js";
-import { ChatMessage } from "../../../models/apps/chat-app/message.models.js";
-import { emitSocketEvent } from "../../../socket/index.js";
-import { ApiError } from "../../../utils/ApiError.js";
-import { ApiResponse } from "../../../utils/ApiResponse.js";
-import { asyncHandler } from "../../../utils/asyncHandler.js";
-import { removeLocalFile } from "../../../utils/helpers.js";
+import { ChatEventEnum } from "../constants.js";
+import { User } from "../models/user.model.js";
+import { Chat } from "../models/chat.model.js";
+import { ChatMessage } from "../models/message.model.js";
+import { emitSocketEvent } from "../services/socket/index.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+// import { removeLocalFile } from "../utils/helpers.js";
 
 /**
  * @description Utility function which returns the pipeline stages to structure the chat schema with common lookups
@@ -23,21 +23,21 @@ const chatCommonAggregation = () => {
         localField: "participants",
         as: "participants",
         pipeline: [
-          {
-            $project: {
-              password: 0,
-              refreshToken: 0,
-              forgotPasswordToken: 0,
-              forgotPasswordExpiry: 0,
-              emailVerificationToken: 0,
-              emailVerificationExpiry: 0,
+            {
+              $project: {
+                // include only frontend-friendly fields (avoid mixing inclusion and exclusion)
+                _id: 1,
+                username: "$name",
+                avatar: "$profilePic",
+                phoneNumber: 1,
+                gender:1
+              },
             },
-          },
         ],
       },
     },
     {
-      // lookup for the group chats
+      // lookup for the group chats -> enrich lastMessage with sender
       $lookup: {
         from: "chatmessages",
         foreignField: "_id",
@@ -45,7 +45,7 @@ const chatCommonAggregation = () => {
         as: "lastMessage",
         pipeline: [
           {
-            // get details of the sender
+            // get details of the sender and map fields to frontend-friendly names
             $lookup: {
               from: "users",
               foreignField: "_id",
@@ -54,9 +54,11 @@ const chatCommonAggregation = () => {
               pipeline: [
                 {
                   $project: {
-                    username: 1,
-                    avatar: 1,
-                    email: 1,
+                    _id: 1,
+                    username: "$name",
+                    avatar: "$profilePic",
+                    phoneNumber: 1,
+                    gender: 1,
                   },
                 },
               ],
@@ -120,16 +122,18 @@ const searchAvailableUsers = asyncHandler(async (req, res) => {
     },
     {
       $project: {
-        avatar: 1,
-        username: 1,
-        email: 1,
+        _id: 1,
+        username: "$name",
+        avatar: "$profilePic",
+        phoneNumber: 1,
+        gender: 1,
       },
     },
   ]);
 
   return res
-    .status(200)
-    .json(new ApiResponse(200, users, "Users fetched successfully"));
+    .code(200)
+    .send(new ApiResponse(200, users, "Users fetched successfully"));
 });
 
 const createOrGetAOneOnOneChat = asyncHandler(async (req, res) => {
@@ -170,8 +174,8 @@ const createOrGetAOneOnOneChat = asyncHandler(async (req, res) => {
   if (chat.length) {
     // if we find the chat that means user already has created a chat
     return res
-      .status(200)
-      .json(new ApiResponse(200, chat[0], "Chat retrieved successfully"));
+      .code(200)
+      .send(new ApiResponse(200, chat[0], "Chat retrieved successfully"));
   }
 
   // if not we need to create a new one on one chat
@@ -211,8 +215,8 @@ const createOrGetAOneOnOneChat = asyncHandler(async (req, res) => {
   });
 
   return res
-    .status(201)
-    .json(new ApiResponse(201, payload, "Chat retrieved successfully"));
+    .code(201)
+    .send(new ApiResponse(201, payload, "Chat retrieved successfully"));
 });
 
 const createAGroupChat = asyncHandler(async (req, res) => {
@@ -274,8 +278,8 @@ const createAGroupChat = asyncHandler(async (req, res) => {
   });
 
   return res
-    .status(201)
-    .json(new ApiResponse(201, payload, "Group chat created successfully"));
+    .code(201)
+    .send(new ApiResponse(201, payload, "Group chat created successfully"));
 });
 
 const getGroupChatDetails = asyncHandler(async (req, res) => {
@@ -297,8 +301,8 @@ const getGroupChatDetails = asyncHandler(async (req, res) => {
   }
 
   return res
-    .status(200)
-    .json(new ApiResponse(200, chat, "Group chat fetched successfully"));
+    .code(200)
+    .send(new ApiResponse(200, chat, "Group chat fetched successfully"));
 });
 
 const renameGroupChat = asyncHandler(async (req, res) => {
@@ -357,8 +361,8 @@ const renameGroupChat = asyncHandler(async (req, res) => {
   });
 
   return res
-    .status(200)
-    .json(
+    .code(200)
+    .send(
       new ApiResponse(200, chat[0], "Group chat name updated successfully")
     );
 });
@@ -405,8 +409,8 @@ const deleteGroupChat = asyncHandler(async (req, res) => {
   });
 
   return res
-    .status(200)
-    .json(new ApiResponse(200, {}, "Group chat deleted successfully"));
+    .code(200)
+    .send(new ApiResponse(200, {}, "Group chat deleted successfully"));
 });
 
 const deleteOneOnOneChat = asyncHandler(async (req, res) => {
@@ -445,8 +449,8 @@ const deleteOneOnOneChat = asyncHandler(async (req, res) => {
   );
 
   return res
-    .status(200)
-    .json(new ApiResponse(200, {}, "Chat deleted successfully"));
+    .code(200)
+    .send(new ApiResponse(200, {}, "Chat deleted successfully"));
 });
 
 const leaveGroupChat = asyncHandler(async (req, res) => {
@@ -495,8 +499,8 @@ const leaveGroupChat = asyncHandler(async (req, res) => {
   }
 
   return res
-    .status(200)
-    .json(new ApiResponse(200, payload, "Left a group successfully"));
+    .code(200)
+    .send(new ApiResponse(200, payload, "Left a group successfully"));
 });
 
 const addNewParticipantInGroupChat = asyncHandler(async (req, res) => {
@@ -553,8 +557,8 @@ const addNewParticipantInGroupChat = asyncHandler(async (req, res) => {
   emitSocketEvent(req, participantId, ChatEventEnum.NEW_CHAT_EVENT, payload);
 
   return res
-    .status(200)
-    .json(new ApiResponse(200, payload, "Participant added successfully"));
+    .code(200)
+    .send(new ApiResponse(200, payload, "Participant added successfully"));
 });
 
 const removeParticipantFromGroupChat = asyncHandler(async (req, res) => {
@@ -611,8 +615,8 @@ const removeParticipantFromGroupChat = asyncHandler(async (req, res) => {
   emitSocketEvent(req, participantId, ChatEventEnum.LEAVE_CHAT_EVENT, payload);
 
   return res
-    .status(200)
-    .json(new ApiResponse(200, payload, "Participant removed successfully"));
+    .code(200)
+    .send(new ApiResponse(200, payload, "Participant removed successfully"));
 });
 
 const getAllChats = asyncHandler(async (req, res) => {
@@ -631,8 +635,8 @@ const getAllChats = asyncHandler(async (req, res) => {
   ]);
 
   return res
-    .status(200)
-    .json(
+    .code(200)
+    .send(
       new ApiResponse(200, chats || [], "User chats fetched successfully!")
     );
 });
