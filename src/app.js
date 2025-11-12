@@ -97,6 +97,7 @@ import userRoutes from "./routes/user.route.js";
 import chatRoutes from "./routes/chat.route.js";
 import { Server as IOServer } from "socket.io";
 import { setupSocketIo, registerIo } from "./services/socket/index.js";
+import ratingRoutes from "./routes/rating.route.js";
 
 
 // import setupSocket from "./controllers/socket.controller.js";
@@ -107,6 +108,8 @@ await app.register(requestRoutes, { prefix: '/api/v1' });
 await app.register(userRoutes, { prefix: '/api/v1' });
 // register chat routes
 await app.register(chatRoutes, { prefix: '/api/v1' });
+// register rating routes
+await app.register(ratingRoutes, { prefix: '/api/v1/ratings' });
 
 // create socket.io server directly (avoid fastify-socket.io peer dependency)
 try {

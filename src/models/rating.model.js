@@ -6,12 +6,12 @@ const ratingSchema = new mongoose.Schema({
         ref: "Request",
         required: true,
     },
-    raterId: {
+    requesterId: {
         type: Schema.Types.ObjectId,
         ref: "User",
         required: true,
     },
-    ratedId: {
+    providerId: {
         type: Schema.Types.ObjectId,
         ref: "User",
         required: true,
