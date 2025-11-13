@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/user.model.js";
+import { Rating } from "../models/rating.model.js";
 // import axios from "axios";
 // import { getFCMAccessToken } from "../utils/fcmAuth.js";
 import { Request } from "../models/request.model.js";
@@ -480,6 +481,18 @@ const approveProvider = asyncHandler(async (req, res) => {
     // if (!providerUser) throw new ApiError(404, "Provider user not found");
 
     // Update provider, enable chatting and set status to IN_PROGRESS
+    const createdRating = await Rating.create({
+        requestId: requestFound._id,
+        requesterId: req.user._id,
+        providerId: providerId,
+        score: -1,
+        reviewText: "",
+    });
+
+    if(!createdRating) {
+        throw new ApiError(500, "Failed to create rating document");
+    }
+
     const updatedRequest = await Request.findByIdAndUpdate(
         requestId,
         {
@@ -491,6 +504,10 @@ const approveProvider = asyncHandler(async (req, res) => {
         },
         { new: true }
     );
+    if(!updatedRequest) {
+        await Rating.findByIdAndDelete(createdRating._id);
+        throw new ApiError(500, "Failed to approve provider");
+    }   
 
     // Notify the approved provider that they have been approved (if they have an fcmToken)
     (async () => {
@@ -498,7 +515,7 @@ const approveProvider = asyncHandler(async (req, res) => {
             const providerUser = await User.findById(providerId).select("name fcmToken");
             if (providerUser && providerUser.fcmToken) {
                 const title = "You've been approved";
-                const body = `You were approved to help on request ${updatedRequest._id}`;
+                const body = `You were approved to help on request ${updatedRequest.taskDescription}`;
                 const data = { type: "provider_approved", requestId: requestId, providerId: providerId.toString() };
                 await sendPush(providerUser.fcmToken, title, body, data);
             }

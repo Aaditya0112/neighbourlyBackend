@@ -19,7 +19,7 @@ const ratingSchema = new mongoose.Schema({
     score: {
         type: Number,
         required: true,
-        min: 1,
+        min: -1,
         max: 5
     },
     reviewText: {

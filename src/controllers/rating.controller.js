@@ -9,9 +9,27 @@ import mongoose from "mongoose";
 const getMyHelpProvided = asyncHandler(async (req, res) => {
 
     const ratings = await Rating.aggregate([
-        { $match: { providerId: new mongoose.Types.ObjectId(req.user._id) } }
+        { 
+            $match: 
+                { 
+                    providerId: new mongoose.Types.ObjectId(req.user._id)
+                } 
+        },
+        {
+            $lookup: {
+                from: "requests",
+                localField: "requestId",
+                foreignField: "_id",
+                as: "request",
+                pipeline: [
+                    { $project: { status: 1 } }
+                ]
+            }
+        },
+    // expose only requestStatus from the looked up request
+    { $addFields: { requestStatus: { $first: "$request.status" } } },
+    { $project: { request: 0 } },
     ]);
-    console.log(req.user._id);
 
     return res.code(200).send(
         new ApiResponse(200, ratings, "Ratings fetched successfully")
@@ -22,8 +40,17 @@ const giveRatings = asyncHandler(async (req, res) => {
 
     const { providerId, requestId,  score, reviewText } = req.body;
 
-    if(!isValidObjectId(providerId)) {
-        throw new ApiError(400, "Invalid provider user ID");
+    if(!isValidObjectId(providerId) || !isValidObjectId(requestId)) {
+        throw new ApiError(400, "Invalid provider user ID or request ID");
+    }
+
+    const requestFound = await Request.findById(requestId);
+
+    if(!requestFound) {
+        throw new ApiError(404, "Request not found");
+    } 
+    if(requestFound.requesterId.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to rate this request");
     }
 
     if(score < 1 || score > 5) {
